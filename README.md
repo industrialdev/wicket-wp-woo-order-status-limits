@@ -31,7 +31,7 @@ Add the repository to your Bedrock `composer.json`:
   "repositories": [
     {
       "type": "vcs",
-      "url": "https://github.com/industrialdev/wicket-wp-woo-order-status-limits"
+      "url": "git@github.com:industrialdev/wicket-wp-woo-order-status-limits"
     }
   ]
 }
