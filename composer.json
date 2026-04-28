@@ -47,5 +47,5 @@
     "version-bump": "Bump the plugin version in composer.json and the main plugin file"
   },
   "type": "wordpress-plugin",
-  "version": "1.0.0"
+  "version": "1.0.2"
 }

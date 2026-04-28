@@ -1,0 +1,56 @@
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Yarn PnP and cache artifacts
+.pnp.cjs
+.pnp.loader.mjs
+.yarn/releases/
+.yarn/install-state.gz
+.yarn/unplugged/
+
+# PHP Tools
+.phpunit.result.cache
+.phpunit.cache
+phpunit.xml.bak
+phpcs.xml.bak
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# Build 
+dist/
+build/
+*.zip
+vendor
+
+# Coverage reports
+coverage/
+coverage-clover.xml
+coverage-html/
+coverage.serialized
+
+# Browser tests
+tests/Browser/Screenshots/
+Tests/Browser/Screenshots/
+
+# Logs
+*.log
+error_log
+debug.log
+
+# Temp
+.tmp/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~
+.php-cs-fixer.cache
+/reference-repo-tests
+/.construct-clipboard
