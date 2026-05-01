@@ -80,7 +80,7 @@ The `$settings_section_added` flag prevents duplication if both filters fire.
 ### Rule Evaluation
 
 `OSL_Limiter::is_transition_blocked($order, $from, $to)`:
-1. Calls `get_blocked_rules($order)` — returns saved JSON rules if any, otherwise `DEFAULT_RULES`
+1. Calls `get_blocked_rules($order)` — returns saved JSON rules if any, otherwise an empty array (no transitions blocked)
 2. Iterates rules looking for a matching `from`/`to` pair
 3. Applies `wicket_order_status_limit_blocked` filter — allows external override per order
 
@@ -90,7 +90,7 @@ Block events store a short-lived transient (`osl_error_{user_id}`, 30-second TTL
 
 ### Admin JS (`osl-admin.js`)
 
-Vanilla JS with no build step. Receives WooCommerce order statuses and default rules via `wp_localize_script` as `window.oslData`. Renders an editable FROM/TO table, syncs changes to a hidden `<textarea>`, and handles import (FileReader) and export (Blob download).
+Vanilla JS with no build step. Receives WooCommerce order statuses via `wp_localize_script` as `window.oslData`. Renders an editable FROM/TO table, syncs changes to a hidden `<textarea>`, and handles import (FileReader) and export (Blob download).
 
 ## Constants
 
@@ -143,7 +143,7 @@ add_filter( 'wicket_order_status_limit_blocked', function( bool $is_blocked, $or
 
 ### `wicket_order_status_limit_rules`
 
-Modify the active rules array. Runs after the saved/default rules are loaded.
+Modify the active rules array. Runs after saved rules are loaded.
 
 ```php
 add_filter( 'wicket_order_status_limit_rules', function( array $rules, $order ): array {
@@ -183,7 +183,7 @@ add_filter( 'wicket_order_status_limit_blocked', function( $is_blocked, $order, 
 
 ```php
 add_filter( 'wicket_order_status_limit_rules', function( $rules, $order ) {
-    // Replace all saved/default rules with a custom set.
+    // Replace all saved rules with a custom set.
     return [
         [ 'from' => 'completed', 'to' => 'cancelled' ],
     ];

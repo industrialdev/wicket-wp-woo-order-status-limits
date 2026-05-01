@@ -55,49 +55,9 @@ composer require industrialdev/wicket-wp-woo-order-status-limits
 3. Enable the feature with the **Enable Order Status Change Limits** checkbox
 4. Optionally set **Exempt Roles** — comma-separated role slugs that bypass all limits (e.g. `administrator, shop_manager`)
 5. Optionally customize the **Blocked Status Change Message** shown to blocked users
-6. Configure **Blocked Transition Rules** using the FROM → TO table (see defaults below)
+6. Add **Blocked Transition Rules** using the FROM → TO table — the plugin ships with no rules, so nothing is blocked until you configure them
 
 Changes take effect immediately on save. No cache flush required.
-
-## Default Blocked Transitions
-
-When no custom rules are saved, the following 30 transitions are blocked for non-exempt users:
-
-| From        | To          |
-|-------------|-------------|
-| on-hold     | completed   |
-| on-hold     | refunded    |
-| cancelled   | pending     |
-| cancelled   | processing  |
-| cancelled   | completed   |
-| cancelled   | refunded    |
-| cancelled   | on-hold     |
-| cancelled   | draft       |
-| cancelled   | trash       |
-| completed   | cancelled   |
-| completed   | refunded    |
-| completed   | on-hold     |
-| completed   | pending     |
-| completed   | processing  |
-| completed   | draft       |
-| completed   | trash       |
-| processing  | cancelled   |
-| processing  | refunded    |
-| processing  | on-hold     |
-| processing  | pending     |
-| processing  | trash       |
-| processing  | draft       |
-| refunded    | on-hold     |
-| refunded    | pending     |
-| refunded    | processing  |
-| refunded    | completed   |
-| refunded    | cancelled   |
-| refunded    | draft       |
-| refunded    | trash       |
-| pending     | completed   |
-| pending     | refunded    |
-
-Custom rules replace the defaults entirely — saving an empty table removes all restrictions.
 
 ## Hooks & Filters
 

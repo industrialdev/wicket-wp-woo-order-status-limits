@@ -15,39 +15,6 @@ class OSL_Limiter
     public const OPTION_MESSAGE = 'wicket_admin_settings_woo_order_status_block_message';
     public const OPTION_RULES = 'wicket_admin_settings_woo_order_status_rules_json';
 
-    public const DEFAULT_RULES = [
-        ['from' => 'on-hold',    'to' => 'completed'],
-        ['from' => 'on-hold',    'to' => 'refunded'],
-        ['from' => 'cancelled',  'to' => 'pending'],
-        ['from' => 'cancelled',  'to' => 'processing'],
-        ['from' => 'cancelled',  'to' => 'completed'],
-        ['from' => 'cancelled',  'to' => 'refunded'],
-        ['from' => 'cancelled',  'to' => 'on-hold'],
-        ['from' => 'cancelled',  'to' => 'draft'],
-        ['from' => 'cancelled',  'to' => 'trash'],
-        ['from' => 'completed',  'to' => 'cancelled'],
-        ['from' => 'completed',  'to' => 'refunded'],
-        ['from' => 'completed',  'to' => 'on-hold'],
-        ['from' => 'completed',  'to' => 'pending'],
-        ['from' => 'completed',  'to' => 'processing'],
-        ['from' => 'completed',  'to' => 'draft'],
-        ['from' => 'completed',  'to' => 'trash'],
-        ['from' => 'processing', 'to' => 'cancelled'],
-        ['from' => 'processing', 'to' => 'refunded'],
-        ['from' => 'processing', 'to' => 'on-hold'],
-        ['from' => 'processing', 'to' => 'pending'],
-        ['from' => 'processing', 'to' => 'trash'],
-        ['from' => 'processing', 'to' => 'draft'],
-        ['from' => 'refunded',   'to' => 'on-hold'],
-        ['from' => 'refunded',   'to' => 'pending'],
-        ['from' => 'refunded',   'to' => 'processing'],
-        ['from' => 'refunded',   'to' => 'completed'],
-        ['from' => 'refunded',   'to' => 'cancelled'],
-        ['from' => 'refunded',   'to' => 'draft'],
-        ['from' => 'refunded',   'to' => 'trash'],
-        ['from' => 'pending',    'to' => 'completed'],
-        ['from' => 'pending',    'to' => 'refunded'],
-    ];
 
     /**
      * Whether the settings section has already been added via wicket_settings_tabs.
@@ -262,7 +229,7 @@ class OSL_Limiter
         $name = $impl->get_name_attribute();
         $value = wp_unslash($impl->get_value_attribute() ?: '');
         $label = esc_html__('Blocked Transition Rules', 'wicket-osl');
-        $description = esc_html__('Each row defines a blocked FROM → TO status transition for non-exempt users. If no rules are saved, the built-in defaults apply.', 'wicket-osl');
+        $description = esc_html__('Each row defines a blocked FROM → TO status transition for non-exempt users.', 'wicket-osl');
 
         ob_start();
         ?>
@@ -347,7 +314,6 @@ class OSL_Limiter
 
         wp_localize_script('wicket-osl-admin', 'oslData', [
             'statuses'          => $statuses,
-            'defaultRules'      => self::DEFAULT_RULES,
             'textRemove'        => __('Remove', 'wicket-osl'),
             'textImportError'   => __('Import failed: the file must be a valid JSON array of {from, to} rule objects.', 'wicket-osl'),
             'exportFilename'    => 'osl-rules.json',
@@ -536,7 +502,6 @@ class OSL_Limiter
 
     /**
      * Return the active blocked-rules array.
-     * Saved JSON replaces defaults entirely; if nothing is saved, DEFAULT_RULES applies.
      *
      * @param WC_Abstract_Order|null $order Order context passed to the filter.
      * @return array<int, array{from: string, to: string}>
@@ -544,6 +509,7 @@ class OSL_Limiter
     public static function get_blocked_rules($order = null): array
     {
         $saved = wicket_get_option(self::OPTION_RULES, '');
+        $rules = [];
 
         if (!empty($saved)) {
             $decoded = json_decode(wp_unslash($saved), true);
@@ -551,8 +517,6 @@ class OSL_Limiter
                 $rules = $decoded;
             }
         }
-
-        $rules ??= self::DEFAULT_RULES;
 
         /*
          * Modify the blocked-rules array.

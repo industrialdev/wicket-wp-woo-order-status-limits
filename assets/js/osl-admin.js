@@ -9,7 +9,6 @@
 	'use strict';
 
 	var statuses        = ( window.oslData && window.oslData.statuses )        || {};
-	var defaultRules    = ( window.oslData && window.oslData.defaultRules )    || [];
 	var textRemove      = ( window.oslData && window.oslData.textRemove )      || 'Remove';
 	var textImportError = ( window.oslData && window.oslData.textImportError ) || 'Import failed: invalid JSON.';
 	var exportFilename  = ( window.oslData && window.oslData.exportFilename )  || 'osl-rules.json';
@@ -180,21 +179,18 @@
 			return;
 		}
 
-		// Parse existing JSON value, or fall back to the built-in defaults.
 		var savedValue = jsonTextarea.value.trim();
-		var rules;
+		var rules = [];
 
 		if ( savedValue ) {
 			try {
 				rules = JSON.parse( savedValue );
 			} catch ( e ) {
-				rules = defaultRules;
+				rules = [];
 			}
-		} else {
-			rules = defaultRules;
 		}
 
-		renderRows( Array.isArray( rules ) ? rules : defaultRules );
+		renderRows( Array.isArray( rules ) ? rules : [] );
 
 		addBtn.addEventListener( 'click', function () {
 			tbody.appendChild( createRow( { from: '', to: '' } ) );
