@@ -16,7 +16,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('OSL_VERSION', '1.0.0');
+define('OSL_VERSION', get_file_data(__FILE__, ['Version' => 'Version'])['Version']);
 define('OSL_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('OSL_PLUGIN_URL', plugin_dir_url(__FILE__));
 
