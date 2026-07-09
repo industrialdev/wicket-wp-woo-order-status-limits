@@ -4,7 +4,7 @@
  * Plugin Name:       Wicket WooCommerce Order Status Limits
  * Plugin URI:        https://github.com/industrialdev/wicket-wp-woo-order-status-limits
  * Description:       Restricts manual WooCommerce order status changes in wp-admin based on configurable rules and user role exceptions.
- * Version:           1.0.2
+ * Version:           1.0.3
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Wicket
