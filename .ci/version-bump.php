@@ -1,42 +1,114 @@
 #!/usr/bin/env php
 <?php
 
+/**
+ * Version bumper for Wicket WordPress plugins and themes.
+ *
+ * Detects the project's main file automatically:
+ *   - a plugin: the root *.php whose header contains "Plugin Name:"
+ *   - a theme:  style.css (header "Theme Name:")
+ *
+ * The current version is read from composer.json when present, otherwise from
+ * the main file's "Version:" header. The new version is written to the main
+ * file's header and to composer.json when that file exists.
+ *
+ * Usage:
+ *   php .ci/version-bump.php patch      # 2.4.10 -> 2.4.11
+ *   php .ci/version-bump.php minor      # 2.4.10 -> 2.5.0
+ *   php .ci/version-bump.php major      # 2.4.10 -> 3.0.0
+ *   php .ci/version-bump.php 2.4.11     # set an explicit version
+ *   php .ci/version-bump.php            # prompt interactively
+ *
+ * On success the resolved version is printed to STDOUT as the last line, so CI
+ * can capture it with: NEW_VERSION="$(php .ci/version-bump.php patch | tail -1)"
+ */
+
 class VersionBumper
 {
     private string $currentVersion;
-    private array $filesToUpdate = [
-        'composer.json',
-        'wicket-wp-woo-order-status-limits.php',
-    ];
+    private array $filesToUpdate = [];
+    private ?string $mainFile = null;
+    private bool $hasComposer = false;
 
     public function __construct()
     {
-        if (!$this->getCurrentVersion()) {
+        $this->mainFile = $this->detectMainFile();
+
+        if ($this->mainFile === null && !file_exists('composer.json')) {
+            fwrite(STDERR, "Error: no composer.json and no main plugin/theme file found in current directory.\n");
             exit(1);
+        }
+
+        if (!$this->resolveCurrentVersion()) {
+            exit(1);
+        }
+
+        if ($this->hasComposer) {
+            $this->filesToUpdate[] = 'composer.json';
+        }
+        if ($this->mainFile !== null) {
+            $this->filesToUpdate[] = $this->mainFile;
         }
     }
 
-    private function getCurrentVersion(): bool
+    /**
+     * Plugin main file (root *.php with "Plugin Name:") or, failing that, a
+     * theme's style.css (with "Theme Name:").
+     */
+    private function detectMainFile(): ?string
     {
-        if (!file_exists('composer.json')) {
-            echo "Error: composer.json not found in current directory.\n";
-            return false;
+        foreach (glob('*.php') ?: [] as $file) {
+            $head = file_get_contents($file, false, null, 0, 4096);
+            if ($head !== false && preg_match('/Plugin Name:\s*\S/i', $head)) {
+                return $file;
+            }
         }
 
-        $composerJson = json_decode(file_get_contents('composer.json'), true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            echo "Error: Unable to parse composer.json: " . json_last_error_msg() . "\n";
-            return false;
+        if (file_exists('style.css')) {
+            $head = file_get_contents('style.css', false, null, 0, 4096);
+            if ($head !== false && preg_match('/Theme Name:\s*\S/i', $head)) {
+                return 'style.css';
+            }
         }
 
-        if (!isset($composerJson['version'])) {
-            echo "Error: No version field found in composer.json\n";
-            return false;
+        return null;
+    }
+
+    /** Current version: composer.json if it has one, else the main file header. */
+    private function resolveCurrentVersion(): bool
+    {
+        if (file_exists('composer.json')) {
+            $composerJson = json_decode((string) file_get_contents('composer.json'), true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                fwrite(STDERR, 'Error: Unable to parse composer.json: ' . json_last_error_msg() . "\n");
+                return false;
+            }
+            if (isset($composerJson['version'])) {
+                $this->hasComposer = true;
+                $this->currentVersion = $composerJson['version'];
+                return true;
+            }
         }
 
-        $this->currentVersion = $composerJson['version'];
-        return true;
+        if ($this->mainFile !== null) {
+            $version = $this->versionFromHeader($this->mainFile);
+            if ($version !== null) {
+                $this->currentVersion = $version;
+                return true;
+            }
+        }
+
+        fwrite(STDERR, "Error: could not determine current version from composer.json or the main file header.\n");
+        return false;
+    }
+
+    private function versionFromHeader(string $file): ?string
+    {
+        $content = (string) file_get_contents($file);
+        if (preg_match('/^\s*\*?\s*Version:\s*([0-9][0-9a-zA-Z.\-]*)/mi', $content, $m)) {
+            return $m[1];
+        }
+        return null;
     }
 
     private function validateNewVersion(string $newVersion): bool
@@ -44,23 +116,58 @@ class VersionBumper
         $semverPattern = '/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/';
 
         if (!preg_match($semverPattern, $newVersion)) {
-            echo "Error: Invalid version format. Please use semantic versioning (e.g., 1.2.3)\n";
+            fwrite(STDERR, "Error: Invalid version format. Please use semantic versioning (e.g., 1.2.3)\n");
             return false;
         }
 
         return true;
     }
 
+    private function computeBump(string $level): ?string
+    {
+        if (!preg_match('/^(\d+)\.(\d+)\.(\d+)/', $this->currentVersion, $m)) {
+            fwrite(STDERR, "Error: current version '{$this->currentVersion}' is not plain X.Y.Z; cannot compute a {$level} bump.\n");
+            return null;
+        }
+
+        [$major, $minor, $patch] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+
+        switch ($level) {
+            case 'major':
+                return ($major + 1) . '.0.0';
+            case 'minor':
+                return $major . '.' . ($minor + 1) . '.0';
+            case 'patch':
+                return $major . '.' . $minor . '.' . ($patch + 1);
+        }
+
+        return null;
+    }
+
+    private function resolveNewVersion(?string $arg): ?string
+    {
+        if ($arg === null || $arg === '') {
+            fwrite(STDERR, 'Enter new version (semver) or bump level [patch|minor|major]: ');
+            $arg = trim((string) fgets(STDIN));
+        }
+
+        if (in_array($arg, ['patch', 'minor', 'major'], true)) {
+            return $this->computeBump($arg);
+        }
+
+        return $arg;
+    }
+
     private function updateVersionInFile(string $filePath, string $newVersion): bool
     {
         if (!file_exists($filePath)) {
-            echo "Warning: File not found: {$filePath}\n";
+            fwrite(STDERR, "Warning: File not found: {$filePath}\n");
             return false;
         }
 
         $content = file_get_contents($filePath);
         if ($content === false) {
-            echo "Error: Unable to read file: {$filePath}\n";
+            fwrite(STDERR, "Error: Unable to read file: {$filePath}\n");
             return false;
         }
 
@@ -74,30 +181,33 @@ class VersionBumper
                 $updated = $count > 0;
                 break;
             case 'php':
-                $newContent = $content;
+            case 'css':
+                // Header version, e.g. " * Version: 1.2.3" (php docblock) or
+                // "Version: 1.2.3" (css theme header).
                 $versionPatternPart = '[0-9a-zA-Z\\.-]+';
+                $headerPattern = '/(^\s*\*?\s*Version:\s*)' . $versionPatternPart . '/mi';
+                $newContent = preg_replace($headerPattern, '${1}' . $newVersion, $content, -1, $count);
+                $updated = $count > 0;
 
-                $docblockPattern = '/(^\s*\*\s*Version:\s*)' . $versionPatternPart . '/m';
-                $tempContent = preg_replace($docblockPattern, '${1}' . $newVersion, $content, -1, $count1);
-
-                if ($count1 > 0) {
-                    $newContent = $tempContent;
-                    $updated = true;
-                } else {
-                    $plainHeaderPattern = '/(Version:\s*)' . $versionPatternPart . '/i';
-                    $tempContent = preg_replace($plainHeaderPattern, '${1}' . $newVersion, $content, -1, $count2);
-                    if ($count2 > 0) {
-                        $newContent = $tempContent;
-                        $updated = true;
-                    } else {
-                        $quotedCurrentVersion = preg_quote($this->currentVersion, '/');
-                        $directPattern = '/' . $quotedCurrentVersion . '/';
-                        $tempContent = preg_replace($directPattern, $newVersion, $content, -1, $count3);
-                        if ($count3 > 0) {
-                            $newContent = $tempContent;
-                            $updated = true;
-                        }
-                    }
+                if ($extension === 'php') {
+                    // Keep any version constant in sync, e.g.
+                    //   define('MYPLUGIN_VERSION', '1.2.3');
+                    //   const VERSION = '1.2.3';
+                    $newContent = preg_replace(
+                        '/(define\(\s*[\'"][A-Z0-9_]*VERSION[\'"]\s*,\s*[\'"])' . $versionPatternPart . '([\'"]\s*\))/',
+                        '${1}' . $newVersion . '${2}',
+                        $newContent,
+                        -1,
+                        $countDefine
+                    );
+                    $newContent = preg_replace(
+                        '/(const\s+VERSION\s*=\s*[\'"])' . $versionPatternPart . '([\'"])/',
+                        '${1}' . $newVersion . '${2}',
+                        $newContent,
+                        -1,
+                        $countConst
+                    );
+                    $updated = $updated || ($countDefine + $countConst) > 0;
                 }
                 break;
             default:
@@ -107,17 +217,17 @@ class VersionBumper
         }
 
         if ($newContent === null) {
-            echo "Error: Pattern replacement failed in {$filePath}\n";
+            fwrite(STDERR, "Error: Pattern replacement failed in {$filePath}\n");
             return false;
         }
 
         if (!$updated) {
-            echo "Warning: No version string found in {$filePath}\n";
+            fwrite(STDERR, "Warning: No version string found in {$filePath}\n");
             return false;
         }
 
         if (file_put_contents($filePath, $newContent) === false) {
-            echo "Error: Unable to write to file: {$filePath}\n";
+            fwrite(STDERR, "Error: Unable to write to file: {$filePath}\n");
             return false;
         }
 
@@ -126,40 +236,43 @@ class VersionBumper
 
     public function run(): void
     {
-        echo "Current version: {$this->currentVersion}\n";
-
-        // Accept version as CLI arg or prompt interactively.
         global $argv;
-        if (!empty($argv[1])) {
-            $newVersion = trim($argv[1]);
-            echo "New version: {$newVersion}\n";
-        } else {
-            echo "Enter new version (semver): ";
-            $newVersion = trim(fgets(STDIN));
-        }
 
-        if (!$this->validateNewVersion($newVersion)) {
+        fwrite(STDERR, "Current version: {$this->currentVersion}\n");
+
+        $newVersion = $this->resolveNewVersion($argv[1] ?? null);
+
+        if ($newVersion === null || !$this->validateNewVersion($newVersion)) {
             exit(1);
         }
+
+        if ($newVersion === $this->currentVersion) {
+            fwrite(STDERR, "Error: new version equals current version ({$newVersion}); nothing to do.\n");
+            exit(1);
+        }
+
+        fwrite(STDERR, "New version: {$newVersion}\n");
 
         $successCount = 0;
         foreach ($this->filesToUpdate as $file) {
             if ($this->updateVersionInFile($file, $newVersion)) {
-                echo "Updated version in {$file}\n";
+                fwrite(STDERR, "Updated version in {$file}\n");
                 $successCount++;
             }
         }
 
         if ($successCount === 0) {
-            echo "Error: No files were updated\n";
+            fwrite(STDERR, "Error: No files were updated\n");
             exit(1);
         }
 
         if ($successCount !== count($this->filesToUpdate)) {
-            echo "{$successCount} out of " . count($this->filesToUpdate) . " files were updated\n";
+            fwrite(STDERR, "{$successCount} out of " . count($this->filesToUpdate) . " files were updated\n");
         }
 
-        echo "Version bump completed: {$this->currentVersion} → {$newVersion}\n";
+        fwrite(STDERR, "Version bump completed: {$this->currentVersion} -> {$newVersion}\n");
+
+        echo $newVersion . "\n";
     }
 }
 
