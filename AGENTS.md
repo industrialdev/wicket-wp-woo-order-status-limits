@@ -6,6 +6,10 @@ WordPress/WooCommerce plugin that restricts manual order status changes in wp-ad
 
 For architecture (plugin structure, boot sequence, interception points, settings integration, rule evaluation, admin JS, constants, filter reference and examples): `@see atlas://packages/wicket-wp-woo-order-status-limits.md`.
 
+## Documentation
+
+The Atlas knowledge base holds the full engineering and product documentation for the whole Wicket stack. Start at `@see atlas://packages/wicket-wp-woo-order-status-limits.md` for this package. The repo docs/ folder, when present, holds only public end-consumer guides; engineering material never lives beside the code.
+
 ## Development Commands
 
 ```bash
